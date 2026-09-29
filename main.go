@@ -44,11 +44,18 @@ func main() {
 	if err != nil {
 		slog.Error("failed to init database", slog.String("error", err.Error()))
 		os.Exit(1)
+	} else {
+		slog.Info("init database success")
 	}
 
 	defer func() {
 		sqlDB, _ := db.DB()
-		sqlDB.Close()
+		err := sqlDB.Close()
+		if err != nil {
+			slog.Error("failed to close sqlDB", slog.String("error", err.Error()))
+		} else {
+			slog.Info("close sqlDB")
+		}
 	}()
 
 	// 迁移所有表结构
@@ -58,6 +65,8 @@ func main() {
 	if migrateErr != nil {
 		slog.Error("failed to migrate database", slog.String("error", migrateErr.Error()))
 		os.Exit(1)
+	} else {
+		slog.Info("migrate all database success")
 	}
 
 	// 初始化Gin服务和路由
