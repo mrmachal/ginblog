@@ -1,0 +1,330 @@
+# ---------- 编译产物 / 可执行文件 ----------
+# 二进制文件（含 Windows / Linux / macOS）
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.a
+*.o
+*.obj
+*.lib
+
+# 编译输出目录
+bin/
+dist/
+build/
+output/
+release/
+target/
+tmp/
+temp/
+
+# go build 生成的二进制（与本项目同名）
+/ginblog
+/ginblog.exe
+/main
+/main.exe
+
+# Go 工作区与依赖
+vendor/
+go.work
+go.work.sum
+# 如需将依赖提交到仓库，可放开下面这行
+#!vendor/
+# go.sum 一般建议提交，如需忽略请放开下面这行
+#go.sum
+
+# Go 覆盖率 / 性能分析
+*.cover
+*.coverprofile
+coverage.out
+coverage.txt
+coverage.html
+*.prof
+*.pprof
+cpu.out
+mem.out
+block.out
+mutex.out
+trace.out
+profile.cov
+profile.out
+
+# 交叉编译产物
+*.386
+*.amd64
+*.arm
+*.arm64
+*.wasm
+
+# 静态资源嵌入产物（embed 生成，可放开）
+# *.generated.go
+# 注意：swag 生成的 Swagger 文档通常需要提交，如需忽略请放开下面两行
+# swagger.yaml
+# docs.go
+
+# ---------- 配置文件 / 密钥（务必不要提交） ----------
+# 环境变量
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+
+# 本地/私有配置
+config.local.yaml
+config.local.yml
+config.local.json
+config.local.toml
+*.local.yaml
+*.local.yml
+*.local.json
+*-local.yaml
+*-local.yml
+app-local.*
+# 常见的私有配置命名
+conf/config.local.*
+config/*.local.*
+configs/*.local.*
+settings.local.*
+# 保留示例配置（如已提供）
+!config.example.yaml
+!config.example.yml
+!configs/config.example.yaml
+!config.yaml.example
+!*.example.yaml
+!*.example.yml
+
+# 密钥 / 证书
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+*.jks
+*.keystore
+id_rsa
+id_rsa.*
+id_dsa
+id_ecdsa
+id_ed25519
+*.secret
+secrets/
+.secret/
+
+# 注意：如果你希望提交某些证书/密钥，请在此显式取消忽略，例如：
+#!deploy/certs/public.crt
+
+# ---------- 数据库 / 数据文件 ----------
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite3-journal
+*.db-wal
+*.db-shm
+*.mdb
+*.accdb
+*.frm
+*.ibd
+*.myd
+*.myi
+dump/
+dumps/
+backup/
+backups/
+data/
+mongo_data/
+mysql_data/
+redis_data/
+*.dump
+*.bson
+*.rdb
+*.aof
+local_data/
+
+# ---------- 日志 / 运行时 ----------
+logs/
+log/
+*.log
+*.log.*
+*.log.1
+nohup.out
+stdout.log
+stderr.log
+pip.log
+*.pid
+*.pid.lock
+*.lock
+!go.sum
+run/
+runtime/
+tmp/*.log
+
+# ---------- 上传 / 静态资源（运行时生成） ----------
+uploads/
+upload/
+static/uploads/
+web/uploads/
+public/uploads/
+media/
+avatars/
+attachments/
+temp_upload/
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+*.orig
+*.rej
+*.swp
+*.swo
+*.swn
+
+# ---------- 缓存 / 临时文件 ----------
+.cache/
+cache/
+.cache/*
+.tmp/
+.temp/
+.crash/
+.gocache/
+go-build/
+*~
+~$*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+Icon?
+*.crdownload
+*.part
+*.download
+
+# ---------- 前端资源（如项目内含 web / admin 面板） ----------
+node_modules/
+bower_components/
+jspm_packages/
+.npm/
+.yarn/
+.pnpm-store/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-debug.log*
+coverage/
+.nyc_output/
+.next/
+.nuxt/
+.vuepress/dist/
+.svelte-kit/
+parcel-bundler/
+.cache/parcel/
+.webpack/
+.vite/
+dist-ssr/
+*.local
+.eslintcache
+.stylelintcache
+
+# ---------- 编辑器 / IDE ----------
+# GoLand / IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+.idea_modules/
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+# Vim / Emacs
+*.swp
+*.swo
+*~
+Session.vim
+.netrwhist
+# Sublime
+*.sublime-workspace
+*.sublime-project
+# Eclipse / VS
+.settings/
+.project
+.classpath
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.VC.db
+*.VC.VC.opendb
+# Fleet / Zed / Cursor
+.fleet/
+.cursor/
+.zed/
+
+# ---------- 测试 / 调试产物 ----------
+__debug_bin*
+debug
+dlv/
+*.test.log
+test-results/
+testdata/output/
+*.golden.tmp
+
+# ---------- 文档生成 / 工具产物 ----------
+site/
+_site/
+public/
+_book/
+.hugo_build.lock
+node_modules/.cache/
+
+# ---------- 容器 / 部署 ----------
+.dockerignore.bak
+docker-compose.override.yml
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+!go.sum.zip
+k8s-secrets/
+.env.docker
+.env.prod
+.env.production
+
+# ---------- OS / 系统文件 ----------
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.lnk
+.history/
+.bash_history
+.zsh_history
+.zsh_sessions/
+
+# ---------- 其他 ----------
+*.sublime-workspace
+*.code-workspace
+*.bak
+*~
+!.gitkeep
+!.gitattributes
+!.gitignore
