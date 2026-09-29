@@ -126,3 +126,7 @@ go build -o build/ginblog.exe .
 
 1. 使用 `log_dir` / `log_file` 键，不要写成 `file`；
 2. 结构体必须带 `mapstructure:"log_dir"` 标签——`viper.Unmarshal` 底层是 mapstructure，**只认 `mapstructure` 标签，不认 `yaml` 标签**。没有该标签时，含下划线的键（`read_timeout`、`log_dir` 等）会全部解析失败，字段保持零值。
+
+## License
+
+[MIT](LICENSE)
