@@ -1,14 +1,17 @@
 package logger
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"gopkg.in/natefinch/lumberjack.v2"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 type Config struct {
@@ -61,5 +64,109 @@ func Init(cfg Config) (io.Closer, error) {
 	slog.SetDefault(ginblogLogger)
 
 	return rollingFile, nil
+}
 
+// GormLogger 将 GORM 的日志桥接到 slog，复用 Init 建立的默认 logger
+type GormLogger struct {
+	level         gormlogger.LogLevel
+	slowThreshold time.Duration
+}
+
+// NewGormLogger 根据应用日志等级创建 GORM logger
+//
+//	debug  -> Info   打印每条 SQL
+//	info   -> Warn   只打印错误和慢查询
+//	warn   -> Warn   同上
+//	error  -> Error  只打印错误
+//	silent -> Silent 不打印
+func NewGormLogger(level string, slowThreshold time.Duration) *GormLogger {
+	var l gormlogger.LogLevel
+	switch strings.ToLower(strings.TrimSpace(level)) {
+	case "debug":
+		l = gormlogger.Info
+	case "error":
+		l = gormlogger.Error
+	case "silent":
+		l = gormlogger.Silent
+	case "info", "warn", "warning", "":
+		l = gormlogger.Warn
+	default:
+		l = gormlogger.Warn
+	}
+
+	if slowThreshold <= 0 {
+		slowThreshold = 200 * time.Millisecond
+	}
+
+	return &GormLogger{
+		level:         l,
+		slowThreshold: slowThreshold,
+	}
+}
+
+// LogMode 返回一个副本，避免修改共享的 logger 实例
+func (l *GormLogger) LogMode(level gormlogger.LogLevel) gormlogger.Interface {
+	newLogger := *l
+	newLogger.level = level
+	return &newLogger
+}
+
+func (l *GormLogger) Info(ctx context.Context, msg string, data ...any) {
+	if l.level < gormlogger.Info {
+		return
+	}
+	slog.InfoContext(ctx, "[GORM] "+format(msg, data...))
+}
+
+func (l *GormLogger) Warn(ctx context.Context, msg string, data ...any) {
+	if l.level < gormlogger.Warn {
+		return
+	}
+	slog.WarnContext(ctx, "[GORM] "+format(msg, data...))
+}
+
+func (l *GormLogger) Error(ctx context.Context, msg string, data ...any) {
+	if l.level < gormlogger.Error {
+		return
+	}
+	slog.ErrorContext(ctx, "[GORM] "+format(msg, data...))
+}
+
+// Trace 记录 SQL 执行情况：错误 -> Error，超过慢查询阈值 -> Warn，普通查询 -> Debug
+func (l *GormLogger) Trace(ctx context.Context, begin time.Time, fc func() (string, int64), err error) {
+	if l.level <= gormlogger.Silent {
+		return
+	}
+
+	elapsed := time.Since(begin)
+	sql, rows := fc()
+
+	switch {
+	case err != nil && l.level >= gormlogger.Error:
+		slog.ErrorContext(ctx, "gorm: query failed",
+			slog.String("error", err.Error()),
+			slog.String("sql", sql),
+			slog.Int64("rows", rows),
+			slog.Duration("elapsed", elapsed),
+		)
+	case elapsed >= l.slowThreshold && l.level >= gormlogger.Warn:
+		slog.WarnContext(ctx, "gorm: slow query",
+			slog.String("sql", sql),
+			slog.Int64("rows", rows),
+			slog.Duration("elapsed", elapsed),
+		)
+	case l.level >= gormlogger.Info:
+		slog.DebugContext(ctx, "gorm: query",
+			slog.String("sql", sql),
+			slog.Int64("rows", rows),
+			slog.Duration("elapsed", elapsed),
+		)
+	}
+}
+
+func format(msg string, data ...any) string {
+	if len(data) == 0 {
+		return msg
+	}
+	return fmt.Sprintf(msg, data...)
 }
