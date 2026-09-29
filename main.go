@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -27,23 +28,29 @@ func main() {
 	}
 
 	// 初始化日志
-	closer, err := logger.Init(logger.Config(cfg.Logger))
+	logs, err := logger.Init(logger.Config(cfg.Logger))
 	if err != nil {
 		slog.Error("failed to init logger", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
-	defer closer.Close()
+	defer logs.Close()
 	slog.Info("init logger success")
 
-	// 初始化数据库（GORM 日志桥接到 slog）
-	gormLogger := logger.NewGormLogger(cfg.Logger.Level, 200*time.Millisecond)
+	// 日志初始化之后的失败退出：先关闭日志文件（os.Exit 不会执行 defer）
+	fatalf := func(msg string, err error) {
+		slog.Error(msg, slog.String("error", err.Error()))
+		_ = logs.Close()
+		os.Exit(1)
+	}
+
+	// 初始化数据库（GORM 日志桥接到 slog，不带 source）
+	gormLogger := logger.NewGormLogger(logs.Gorm, cfg.Logger.Level, 200*time.Millisecond)
 	db, err := database.Init(database.Config{
 		File:   cfg.Database.File,
 		Logger: gormLogger,
 	})
 	if err != nil {
-		slog.Error("failed to init database", slog.String("error", err.Error()))
-		os.Exit(1)
+		fatalf("failed to init database", err)
 	} else {
 		slog.Info("init database success")
 	}
@@ -59,20 +66,34 @@ func main() {
 	}()
 
 	// 迁移所有表结构
-	migrateErr := database.Migrate(db, []any{
+	if migrateErr := database.Migrate(db, []any{
 		&model.Article{},
-	})
-	if migrateErr != nil {
-		slog.Error("failed to migrate database", slog.String("error", migrateErr.Error()))
-		os.Exit(1)
+	}); migrateErr != nil {
+		fatalf("failed to migrate database", migrateErr)
 	} else {
 		slog.Info("migrate all database success")
 	}
 
 	// 初始化Gin服务和路由
+	// gin 运行模式：默认 release，调试时设置 GIN_MODE=debug
+	switch strings.ToLower(strings.TrimSpace(cfg.Server.ServerMode)) {
+	case "debug":
+		gin.SetMode(gin.DebugMode)
+	case "release":
+		gin.SetMode(gin.ReleaseMode)
+	case "test":
+		gin.SetMode(gin.TestMode)
+	default:
+		gin.SetMode(gin.ReleaseMode)
+	}
+	// gin 自身日志转发到 slog，避免与 JSON 格式混排
+	gin.DefaultWriter = logger.NewSlogWriter("gin", slog.LevelInfo)
+	gin.DefaultErrorWriter = logger.NewSlogWriter("gin", slog.LevelError)
+
 	r := gin.New()
 
-	r.Use(middleware.Logger())
+	// Logger 在外层、Recovery 在内层：panic 恢复后仍能记录访问日志
+	r.Use(middleware.Logger(), middleware.Recovery())
 
 	r.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{

@@ -24,9 +24,24 @@ type Config struct {
 	Compress   bool   `yaml:"compress"`    // 是否压缩旧日志文件
 }
 
-func Init(cfg Config) (io.Closer, error) {
-	if err := os.MkdirAll(cfg.LogDir, 0755); err != nil {
-		return nil, fmt.Errorf("faild to create log dir: %w", err)
+// Handle 持有初始化后的日志器
+type Handle struct {
+	App    *slog.Logger // 应用日志，带 source 信息
+	Gorm   *slog.Logger // GORM 日志，不带 source（调用方恒为本包，无参考价值）
+	closer io.Closer
+}
+
+// Close 关闭底层日志文件
+func (h *Handle) Close() error {
+	if h == nil || h.closer == nil {
+		return nil
+	}
+	return h.closer.Close()
+}
+
+func Init(cfg Config) (*Handle, error) {
+	if err := os.MkdirAll(cfg.LogDir, 0o755); err != nil {
+		return nil, fmt.Errorf("failed to create log dir: %w", err)
 	}
 
 	logPath := filepath.Join(cfg.LogDir, cfg.LogFile)
@@ -41,57 +56,105 @@ func Init(cfg Config) (io.Closer, error) {
 	}
 
 	writer := io.MultiWriter(os.Stdout, rollingFile)
-	var level slog.Level
-	switch strings.ToLower(strings.TrimSpace(cfg.Level)) {
-	case "debug":
-		level = slog.LevelDebug
-	case "info":
-		level = slog.LevelInfo
-	case "warning", "warn":
-		level = slog.LevelWarn
-	case "error":
-		level = slog.LevelError
-	default:
-		level = slog.LevelInfo
+	level := parseLevel(cfg.Level)
+
+	newHandler := func(addSource bool) slog.Handler {
+		return slog.NewJSONHandler(writer, &slog.HandlerOptions{
+			Level:       level,
+			AddSource:   addSource,
+			ReplaceAttr: replaceAttr,
+		})
 	}
 
-	opts := &slog.HandlerOptions{
-		Level:     level,
-		AddSource: true,
-	}
+	appLogger := slog.New(newHandler(true))
+	gormSlogLogger := slog.New(newHandler(false))
 
-	ginblogLogger := slog.New(slog.NewJSONHandler(writer, opts))
-	slog.SetDefault(ginblogLogger)
+	// 应用代码（含 middleware）统一走 slog 默认 logger
+	slog.SetDefault(appLogger)
 
-	return rollingFile, nil
+	return &Handle{
+		App:    appLogger,
+		Gorm:   gormSlogLogger,
+		closer: rollingFile,
+	}, nil
 }
 
-// GormLogger 将 GORM 的日志桥接到 slog，复用 Init 建立的默认 logger
+// NewSlogWriter 返回一个 io.Writer，把写入的内容转发到 slog，
+// 用于接管第三方库（如 gin）的日志输出，保持格式统一
+func NewSlogWriter(tag string, level slog.Level) io.Writer {
+	return slogWriter{tag: tag, level: level}
+}
+
+type slogWriter struct {
+	tag   string
+	level slog.Level
+}
+
+func (w slogWriter) Write(p []byte) (int, error) {
+	if msg := strings.TrimSpace(string(p)); msg != "" {
+		slog.Log(context.Background(), w.level, w.tag, slog.String("detail", msg))
+	}
+	return len(p), nil
+}
+
+// parseLevel 解析配置的日志等级，silent 表示不输出任何日志
+func parseLevel(s string) slog.Level {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "debug":
+		return slog.LevelDebug
+	case "warning", "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	case "silent":
+		return slog.LevelError + 1 // 高于最高等级，过滤掉一切日志
+	case "info", "":
+		return slog.LevelInfo
+	default:
+		return slog.LevelInfo
+	}
+}
+
+// replaceAttr 将 Duration 格式化为可读字符串（如 "64.1ms"），避免输出裸纳秒数字
+func replaceAttr(_ []string, a slog.Attr) slog.Attr {
+	if a.Value.Kind() == slog.KindDuration {
+		a.Value = slog.StringValue(a.Value.Duration().String())
+	}
+	return a
+}
+
+// GormLogger 将 GORM 的日志桥接到 slog
 type GormLogger struct {
+	slog          *slog.Logger
 	level         gormlogger.LogLevel
 	slowThreshold time.Duration
 }
 
 // NewGormLogger 根据应用日志等级创建 GORM logger
+// l 为 nil 时回退到 slog.Default()（仅作兜底，建议显式传入 Handle.Gorm）
 //
 //	debug  -> Info   打印每条 SQL
 //	info   -> Warn   只打印错误和慢查询
 //	warn   -> Warn   同上
 //	error  -> Error  只打印错误
 //	silent -> Silent 不打印
-func NewGormLogger(level string, slowThreshold time.Duration) *GormLogger {
-	var l gormlogger.LogLevel
+func NewGormLogger(l *slog.Logger, level string, slowThreshold time.Duration) *GormLogger {
+	if l == nil {
+		l = slog.Default()
+	}
+
+	var lg gormlogger.LogLevel
 	switch strings.ToLower(strings.TrimSpace(level)) {
 	case "debug":
-		l = gormlogger.Info
+		lg = gormlogger.Info
 	case "error":
-		l = gormlogger.Error
+		lg = gormlogger.Error
 	case "silent":
-		l = gormlogger.Silent
+		lg = gormlogger.Silent
 	case "info", "warn", "warning", "":
-		l = gormlogger.Warn
+		lg = gormlogger.Warn
 	default:
-		l = gormlogger.Warn
+		lg = gormlogger.Warn
 	}
 
 	if slowThreshold <= 0 {
@@ -99,7 +162,8 @@ func NewGormLogger(level string, slowThreshold time.Duration) *GormLogger {
 	}
 
 	return &GormLogger{
-		level:         l,
+		slog:          l,
+		level:         lg,
 		slowThreshold: slowThreshold,
 	}
 }
@@ -115,21 +179,21 @@ func (l *GormLogger) Info(ctx context.Context, msg string, data ...any) {
 	if l.level < gormlogger.Info {
 		return
 	}
-	slog.InfoContext(ctx, "[GORM] "+format(msg, data...))
+	l.slog.InfoContext(ctx, "[GORM] "+format(msg, data...))
 }
 
 func (l *GormLogger) Warn(ctx context.Context, msg string, data ...any) {
 	if l.level < gormlogger.Warn {
 		return
 	}
-	slog.WarnContext(ctx, "[GORM] "+format(msg, data...))
+	l.slog.WarnContext(ctx, "[GORM] "+format(msg, data...))
 }
 
 func (l *GormLogger) Error(ctx context.Context, msg string, data ...any) {
 	if l.level < gormlogger.Error {
 		return
 	}
-	slog.ErrorContext(ctx, "[GORM] "+format(msg, data...))
+	l.slog.ErrorContext(ctx, "[GORM] "+format(msg, data...))
 }
 
 // Trace 记录 SQL 执行情况：错误 -> Error，超过慢查询阈值 -> Warn，普通查询 -> Debug
@@ -143,20 +207,20 @@ func (l *GormLogger) Trace(ctx context.Context, begin time.Time, fc func() (stri
 
 	switch {
 	case err != nil && l.level >= gormlogger.Error:
-		slog.ErrorContext(ctx, "gorm: query failed",
+		l.slog.ErrorContext(ctx, "gorm: query failed",
 			slog.String("error", err.Error()),
 			slog.String("sql", sql),
 			slog.Int64("rows", rows),
 			slog.Duration("elapsed", elapsed),
 		)
 	case elapsed >= l.slowThreshold && l.level >= gormlogger.Warn:
-		slog.WarnContext(ctx, "gorm: slow query",
+		l.slog.WarnContext(ctx, "gorm: slow query",
 			slog.String("sql", sql),
 			slog.Int64("rows", rows),
 			slog.Duration("elapsed", elapsed),
 		)
 	case l.level >= gormlogger.Info:
-		slog.DebugContext(ctx, "gorm: query",
+		l.slog.DebugContext(ctx, "gorm: query",
 			slog.String("sql", sql),
 			slog.Int64("rows", rows),
 			slog.Duration("elapsed", elapsed),

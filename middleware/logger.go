@@ -23,7 +23,7 @@ func Logger() gin.HandlerFunc {
 			slog.String("path", path),
 			slog.String("query", query),
 			slog.Int("status", status),
-			slog.String("latency", latency.String()),
+			slog.Duration("latency", latency),
 			slog.Int("size", c.Writer.Size()),
 			slog.String("client_ip", c.ClientIP()),
 			slog.String("user_agent", c.Request.UserAgent()),

@@ -18,6 +18,7 @@ type ServerConfig struct {
 	WriteTimeout int64  `yaml:"write_timeout" mapstructure:"write_timeout"`
 	IdleTimeout  int64  `yaml:"idle_timeout" mapstructure:"idle_timeout"`
 	Port         int    `yaml:"port" mapstructure:"port"`
+	ServerMode   string `yaml:"server_mode" mapstructure:"server_mode"`
 }
 
 type LoggerConfig struct {

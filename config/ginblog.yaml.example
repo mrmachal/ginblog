@@ -13,12 +13,14 @@ server:
   write_timeout: 15
   # 空闲连接超时（秒）
   idle_timeout: 60
+  # 服务模式
+  server_mode: debug
 
 logger:
   # 日志等级：debug、warn、error、info
-  level: info
+  level: debug
   # 日志文件夹
-  log_dir: ./logger
+  log_dir: ./logs
   # 日志文件名
   log_file: ginblog.log
   # 单个日志文件最大体积（MB）
