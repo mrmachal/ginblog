@@ -21,8 +21,13 @@ type ServerConfig struct {
 }
 
 type LoggerConfig struct {
-	Level string `yaml:"level"`
-	File  string `yaml:"file"`
+	Level      string `yaml:"level"`       // 日志等级 INFO、DEBUG、ERROR
+	LogDir     string `yaml:"log_dir"`     // 日志文件夹
+	LogFile    string `yaml:"log_file"`    // 日志文件名
+	MaxSize    int    `yaml:"max_size"`    // 单个日志文件最大体积 MB
+	MaxAge     int    `yaml:"max_age"`     // 日志旧文件最多保留时间 天
+	MaxBackups int    `yaml:"max_backups"` // 最多保留几个日志文件
+	Compress   bool   `yaml:"compress"`    // 是否压缩旧日志文件
 }
 
 type DatabaseConfig struct {

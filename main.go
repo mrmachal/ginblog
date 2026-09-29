@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"ginblog/config"
+	"ginblog/pkg/logger"
 	"log/slog"
 	"net/http"
 	"os"
@@ -20,7 +21,15 @@ func main() {
 	cfg, err := config.Load()
 	if err != nil {
 		slog.Error("failed to load config", slog.String("error", err.Error()))
+		os.Exit(1)
 	}
+
+	closer, err := logger.Init(logger.Config(cfg.Logger))
+	if err != nil {
+		slog.Error("filed to init logger", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	defer closer.Close()
 
 	r := gin.New()
 
