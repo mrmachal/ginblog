@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"ginblog/config"
+	"ginblog/middleware"
 	"ginblog/pkg/logger"
 	"log/slog"
 	"net/http"
@@ -31,7 +32,17 @@ func main() {
 	}
 	defer closer.Close()
 
+	slog.Info("init logger success")
+
 	r := gin.New()
+
+	r.Use(middleware.Logger())
+
+	r.GET("/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "hello workd",
+		})
+	})
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Server.Port),
@@ -47,13 +58,18 @@ func main() {
 		}
 	}()
 
+	slog.Info("start server success")
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
+	err = srv.Shutdown(ctx)
+	if err != nil {
 		slog.Error("shutdown error", slog.String("error", err.Error()))
+	} else {
+		slog.Info("shutdown server success")
 	}
 }

@@ -1,10 +1,35 @@
+# ginblog 配置文件示例
+# 复制本文件为 ginblog.yaml 后按需修改
+# 加载路径：./ginblog.yaml 或 ./config/ginblog.yaml
+
 server:
+  # 服务名称
   server_name: ginblog
+  # 服务监听端口
+  port: 8080
+  # 读取超时（秒）
   read_timeout: 15
+  # 写入超时（秒）
   write_timeout: 15
+  # 空闲连接超时（秒）
   idle_timeout: 60
+
 logger:
+  # 日志等级：debug、warn、error、info
   level: info
-  file: ./logger/ginblog.log
+  # 日志文件夹
+  log_dir: ./logger
+  # 日志文件名
+  log_file: ginblog.log
+  # 单个日志文件最大体积（MB）
+  max_size: 100
+  # 旧日志文件最多保留时间（天）
+  max_age: 7
+  # 最多保留几个日志文件
+  max_backups: 7
+  # 是否压缩旧日志文件
+  compress: true
+
 database:
+  # SQLite 数据库文件路径
   file: ./data/ginblog.db
