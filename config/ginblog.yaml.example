@@ -1,0 +1,10 @@
+server:
+  server_name: ginblog
+  read_timeout: 15
+  write_timeout: 15
+  idle_timeout: 60
+logger:
+  level: info
+  file: ./logger/ginblog.log
+database:
+  file: ./data/ginblog.db

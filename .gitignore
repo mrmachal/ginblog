@@ -75,28 +75,7 @@ profile.out
 !.env.template
 
 # 本地/私有配置
-config.local.yaml
-config.local.yml
-config.local.json
-config.local.toml
-*.local.yaml
-*.local.yml
-*.local.json
-*-local.yaml
-*-local.yml
-app-local.*
-# 常见的私有配置命名
-conf/config.local.*
-config/*.local.*
-configs/*.local.*
-settings.local.*
-# 保留示例配置（如已提供）
-!config.example.yaml
-!config.example.yml
-!configs/config.example.yaml
-!config.yaml.example
-!*.example.yaml
-!*.example.yml
+*/ginblog.yaml
 
 # 密钥 / 证书
 *.pem
