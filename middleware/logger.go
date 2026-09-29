@@ -34,7 +34,7 @@ func Logger() gin.HandlerFunc {
 		case status >= 500:
 			slog.LogAttrs(c.Request.Context(), slog.LevelError, "request", attrs...)
 		case status >= 400:
-			slog.LogAttrs(c.Request.Context(), slog.LevelError, "request", attrs...)
+			slog.LogAttrs(c.Request.Context(), slog.LevelWarn, "request", attrs...)
 		default:
 			slog.LogAttrs(c.Request.Context(), slog.LevelInfo, "request", attrs...)
 		}
