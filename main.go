@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"ginblog/api"
 	"ginblog/config"
 	"ginblog/middleware"
 	"ginblog/model"
@@ -101,6 +102,8 @@ func main() {
 		})
 	})
 
+	api.Init(db, r)
+
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Server.Port),
 		Handler:      r,
@@ -109,9 +112,13 @@ func main() {
 		IdleTimeout:  time.Duration(cfg.Server.IdleTimeout) * time.Second,
 	}
 
+	// 监听失败（如端口占用）通过 channel 通知主 goroutine，避免进程假死：
+	// 只在真正的错误时发送（Shutdown 导致的 ErrServerClosed 不发），
+	// buffered=1 保证即使无人接收 goroutine 也不会阻塞
+	serverErr := make(chan error, 1)
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("server error", slog.String("error", err.Error()))
+			serverErr <- err
 		}
 	}()
 
@@ -120,14 +127,20 @@ func main() {
 	// 优雅退出
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = srv.Shutdown(ctx)
-	if err != nil {
-		slog.Error("shutdown error", slog.String("error", err.Error()))
-	} else {
-		slog.Info("shutdown server success")
+	select {
+	case err := <-serverErr:
+		// 启动即失败：记录日志、关闭日志文件并退出（进程不能无监听地活着）
+		fatalf("failed to listen and serve", err)
+	case sig := <-quit:
+		slog.Info("received signal, shutting down", slog.String("signal", sig.String()))
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(ctx); err != nil {
+			slog.Error("shutdown error", slog.String("error", err.Error()))
+		} else {
+			slog.Info("shutdown server success")
+		}
 	}
 }

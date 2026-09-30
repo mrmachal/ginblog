@@ -1,7 +1,13 @@
 package api
 
-import "gorm.io/gorm"
+import (
+	"ginblog/api/article"
 
-func Init(db *gorm.DB) error {
-	return nil
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+)
+
+func Init(db *gorm.DB, r *gin.Engine) {
+	api := r.Group("/api")
+	article.Init(db, api)
 }

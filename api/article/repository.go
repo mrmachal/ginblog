@@ -34,7 +34,7 @@ func (r *articleRepository) List(c context.Context, q ListArticleQuery) ([]*mode
 		total       int64
 	)
 
-	db := r.db.WithContext(c).Model(&model.Article{}).Select("id", "title", "description", "updated_at")
+	db := r.db.WithContext(c).Model(&model.Article{}).Select("id", "title", "description", "updated_at", "created_at")
 	if q.Keyword != "" {
 		kw := "%" + q.Keyword + "%"
 		db = db.Where("title LIKE ? OR description LIKE ?", kw, kw)

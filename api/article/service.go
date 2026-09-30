@@ -52,6 +52,13 @@ func (s *Service) GetByID(c context.Context, articleID uint) (*DetailArticleResp
 }
 
 func (s *Service) Create(c context.Context, articleReq CreateArticleRequest) (SummaryResponse, error) {
+	title := strings.TrimSpace(articleReq.Title)
+	if title == "" {
+		return SummaryResponse{}, fmt.Errorf("title must not be blank")
+	}
+	if strings.TrimSpace(articleReq.Content) == "" {
+		return SummaryResponse{}, fmt.Errorf("content must not be blank")
+	}
 	article := model.Article{
 		Title:       articleReq.Title,
 		Description: articleReq.Description,
@@ -73,9 +80,9 @@ func (s *Service) Delete(c context.Context, articleID uint) error {
 	err := s.repo.Delete(c, articleID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return fmt.Errorf("article not found")
+			return fmt.Errorf("article not found: %w", err)
 		}
-		return fmt.Errorf("faild to delete article: %w", err)
+		return fmt.Errorf("failed to delete article: %w", err)
 	}
 	return nil
 }
@@ -97,7 +104,7 @@ func (s *Service) Update(c context.Context, articleID uint, req UpdateArticleReq
 	article, err := s.repo.GetById(c, articleID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return SummaryResponse{}, fmt.Errorf("article not found")
+			return SummaryResponse{}, fmt.Errorf("article not found: %w", err)
 		}
 		return SummaryResponse{}, fmt.Errorf("failed to get article: %w", err)
 	}
