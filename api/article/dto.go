@@ -31,6 +31,8 @@ type DetailArticleResponse struct {
 	Content     string    `json:"content"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+	AuthorID    uint      `json:"author_id"`
+	AuthorName  string    `json:"author_name"`
 }
 
 type SummaryResponse struct {
@@ -39,4 +41,5 @@ type SummaryResponse struct {
 	Description string    `json:"description"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+	AuthorName  string    `json:"author_name"`
 }

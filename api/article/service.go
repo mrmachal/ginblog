@@ -31,6 +31,7 @@ func (s *Service) List(c context.Context, q ListArticleQuery) ([]SummaryResponse
 			Description: item.Description,
 			UpdatedAt:   item.UpdatedAt,
 			CreatedAt:   item.CreatedAt,
+			AuthorName:  item.User.NickName,
 		})
 	}
 	return out, total, nil
@@ -48,6 +49,8 @@ func (s *Service) GetByID(c context.Context, articleID uint) (*DetailArticleResp
 		Content:     article.Content,
 		CreatedAt:   article.CreatedAt,
 		UpdatedAt:   article.UpdatedAt,
+		AuthorID:    article.UserID,
+		AuthorName:  article.User.NickName,
 	}, nil
 }
 

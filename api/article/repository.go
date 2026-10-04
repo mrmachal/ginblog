@@ -34,7 +34,10 @@ func (r *articleRepository) List(c context.Context, q ListArticleQuery) ([]*mode
 		total       int64
 	)
 
-	db := r.db.WithContext(c).Model(&model.Article{}).Select("id", "title", "description", "updated_at", "created_at")
+	db := r.db.WithContext(c).Preload("User", func(db *gorm.DB) *gorm.DB {
+		return db.Select("id", "nick_name")
+	})
+	db = db.Model(&model.Article{}).Select("id", "title", "description", "updated_at", "created_at", "user")
 	if q.Keyword != "" {
 		kw := "%" + q.Keyword + "%"
 		db = db.Where("title LIKE ? OR description LIKE ?", kw, kw)
@@ -63,7 +66,11 @@ func (r *articleRepository) List(c context.Context, q ListArticleQuery) ([]*mode
 
 func (r *articleRepository) GetById(c context.Context, articleId uint) (*model.Article, error) {
 	var article model.Article
-	db := r.db.WithContext(c).First(&article, articleId)
+	db := r.db.WithContext(c).
+		Preload("User", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "user_name", "nick_name")
+		})
+	db = db.First(&article, articleId)
 	if err := db.Error; err != nil {
 		return nil, err
 	}
@@ -83,4 +90,15 @@ func (r *articleRepository) Delete(c context.Context, articleID uint) error {
 
 func (r *articleRepository) Save(c context.Context, article *model.Article) error {
 	return r.db.WithContext(c).Save(article).Error
+}
+
+func (r *articleRepository) UserOwnsArticle(c context.Context, articleID, UserID uint) (bool, error) {
+	db := r.db.WithContext(c).Select("id", "user_id").Where("id = ? AND user_id = ?", articleID, UserID)
+	var count int64
+	err := db.Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+
+	return count >= 0, nil
 }
