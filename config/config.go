@@ -11,7 +11,7 @@ type Config struct {
 	Server   ServerConfig   `yaml:"server" mapstructure:"server"`
 	Logger   LoggerConfig   `yaml:"logger" mapstructure:"logger"`
 	Database DatabaseConfig `yaml:"database" mapstructure:"database"`
-	Reids    RedisConfig    `yaml:"redis" mapstructure:"redis"`
+	Redis    RedisConfig    `yaml:"redis" mapstructure:"redis"`
 	Auth     AuthConfig     `yaml:"auth" mapstructure:"auth"`
 }
 

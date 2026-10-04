@@ -77,7 +77,7 @@ func main() {
 		slog.Info("migrate all database success")
 	}
 
-	redisClient, err := redis.Init(redis.Config(cfg.Reids))
+	redisClient, err := redis.Init(redis.Config(cfg.Redis))
 	if err != nil {
 		fatalf("failed to init redis", err)
 	} else {
