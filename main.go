@@ -9,6 +9,7 @@ import (
 	"ginblog/model"
 	"ginblog/pkg/database"
 	"ginblog/pkg/logger"
+	"ginblog/pkg/redis"
 	"log/slog"
 	"net/http"
 	"os"
@@ -69,11 +70,29 @@ func main() {
 	// 迁移所有表结构
 	if migrateErr := database.Migrate(db, []any{
 		&model.Article{},
+		&model.UserInfo{},
 	}); migrateErr != nil {
 		fatalf("failed to migrate database", migrateErr)
 	} else {
 		slog.Info("migrate all database success")
 	}
+
+	redisClient, err := redis.Init(redis.Config(cfg.Reids))
+	if err != nil {
+		fatalf("failed to init redis", err)
+	} else {
+		slog.Info("init redis success")
+	}
+
+	defer func() {
+		if err := redisClient.Close(); err != nil {
+			slog.Error("failed to close redis", slog.String("error", err.Error()))
+		} else {
+			slog.Info("close redis success")
+		}
+	}()
+
+	_ = redisClient
 
 	// 初始化Gin服务和路由
 	// gin 运行模式：默认 release，调试时设置 GIN_MODE=debug

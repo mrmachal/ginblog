@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/spf13/viper"
 )
@@ -10,6 +11,8 @@ type Config struct {
 	Server   ServerConfig   `yaml:"server" mapstructure:"server"`
 	Logger   LoggerConfig   `yaml:"logger" mapstructure:"logger"`
 	Database DatabaseConfig `yaml:"database" mapstructure:"database"`
+	Reids    RedisConfig    `yaml:"redis" mapstructure:"redis"`
+	Auth     AuthConfig     `yaml:"auth" mapstructure:"auth"`
 }
 
 type ServerConfig struct {
@@ -33,6 +36,22 @@ type LoggerConfig struct {
 
 type DatabaseConfig struct {
 	File string `yaml:"file" mapstructure:"file"`
+}
+
+type RedisConfig struct {
+	Addr         string        `yaml:"addr" mapstructure:"addr"`
+	Password     string        `yaml:"password" mapstructure:"password"`
+	DB           int           `yaml:"db" mapstructure:"db"`
+	DialTimeout  time.Duration `yaml:"dial_timeout" mapstructure:"dial_timeout"`
+	ReadTimeout  time.Duration `yaml:"read_timeout" mapstructure:"read_timeout"`
+	WriteTimeout time.Duration `yaml:"write_timeout" mapstructure:"write_timeout"`
+	PoolSize     int           `yaml:"pool_size" mapstructure:"pool_size"`
+}
+
+type AuthConfig struct {
+	CookieName  string `yaml:"cookie_name" mapstructure:"cookie_name"`
+	ExpireHours int    `yaml:"expire_hours" mapstructure:"expire_hours"`
+	Secure      bool   `yaml:"secure" mapstructure:"secure"`
 }
 
 func Load() (*Config, error) {
