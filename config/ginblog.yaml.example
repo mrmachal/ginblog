@@ -35,3 +35,31 @@ logger:
 database:
   # SQLite 数据库文件路径
   file: ./data/ginblog.db
+
+redis:
+  # Redis 服务地址
+  addr: 127.0.0.1:6379
+  # 访问密码，无密码时留空
+  password: ""
+  # 逻辑库编号
+  db: 0
+  # 连接超时 —— 必须带单位（ns/µs/ms/s/m/h）
+  # 注意：写 3 表示 3 纳秒，不是 3 秒
+  dial_timeout: 3s
+  # 读超时
+  read_timeout: 3s
+  # 写超时
+  write_timeout: 3s
+  # 连接池大小；设为 0 时 go-redis 取 10 * GOMAXPROCS
+  pool_size: 10
+
+auth:
+  # 登录态 cookie 名称
+  cookie_name: ginblog_sid
+  # 登录态有效期（小时）；cookie maxAge 与 session TTL 同源于此值
+  expire_hours: 168
+  # 仅通过 HTTPS 下发 cookie；本地开发保持 false
+  secure: false
+  # session key 前缀，最终 key 形如 ginblog:session:{sha256(token)}
+  # 与其他业务共用同一个 Redis 库时靠它隔离
+  session_prefix: "ginblog:"
