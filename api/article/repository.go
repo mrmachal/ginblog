@@ -28,7 +28,7 @@ func (r *articleRepository) Create(c context.Context, article *model.Article) er
 	return r.db.WithContext(c).Create(article).Error
 }
 
-func (r *articleRepository) List(c context.Context, q ListArticleQuery) ([]*model.Article, int64, error) {
+func (r *articleRepository) List(c context.Context, query ListArticleQuery) ([]*model.Article, int64, error) {
 	var (
 		articleList []*model.Article
 		total       int64
@@ -38,8 +38,8 @@ func (r *articleRepository) List(c context.Context, q ListArticleQuery) ([]*mode
 		return db.Select("id", "nick_name")
 	})
 	db = db.Model(&model.Article{}).Select("id", "title", "description", "updated_at", "created_at", "user")
-	if q.Keyword != "" {
-		kw := "%" + q.Keyword + "%"
+	if query.Keyword != "" {
+		kw := "%" + query.Keyword + "%"
 		db = db.Where("title LIKE ? OR description LIKE ?", kw, kw)
 	}
 
@@ -48,9 +48,9 @@ func (r *articleRepository) List(c context.Context, q ListArticleQuery) ([]*mode
 	}
 
 	order := "id DESC"
-	if q.Sort != "" {
-		desc := strings.HasPrefix(q.Sort, "-")
-		key := strings.TrimPrefix(q.Sort, "-")
+	if query.Sort != "" {
+		desc := strings.HasPrefix(query.Sort, "-")
+		key := strings.TrimPrefix(query.Sort, "-")
 		if key == "title" || key == "description" || key == "updated_at" || key == "created_at" {
 			if desc {
 				order = key + " DESC"
@@ -59,7 +59,7 @@ func (r *articleRepository) List(c context.Context, q ListArticleQuery) ([]*mode
 			}
 		}
 	}
-	db = db.Offset((q.Page - 1) * q.PageSize).Limit(q.PageSize).Order(order)
+	db = db.Offset((query.Page - 1) * query.PageSize).Limit(query.PageSize).Order(order)
 	err := db.Find(&articleList).Error
 	return articleList, total, err
 }
