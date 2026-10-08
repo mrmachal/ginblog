@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"errors"
 	"ginblog/model"
 	"strings"
 
@@ -12,6 +13,8 @@ type Repository interface {
 	Create(c context.Context, user *model.UserInfo) error
 	Delete(c context.Context, userID uint) error
 	GetByID(c context.Context, userID uint) (*model.UserInfo, error)
+	GetByUserName(c context.Context, userName string) (*model.UserInfo, error)
+	GetByEmail(c context.Context, email string) (*model.UserInfo, error)
 	Save(c context.Context, newUserInfo *model.UserInfo) error
 	List(c context.Context, query ListUserQuery) ([]*model.UserInfo, int64, error)
 }
@@ -44,9 +47,37 @@ func (r *userRepository) GetByID(c context.Context, userID uint) (*model.UserInf
 	var userInfo model.UserInfo
 	db := r.db.WithContext(c).First(&userInfo, userID)
 	if err := db.Error; err != nil {
-		return &model.UserInfo{}, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
 	}
 
+	return &userInfo, nil
+}
+
+func (r *userRepository) GetByUserName(c context.Context, userName string) (*model.UserInfo, error) {
+	var userInfo model.UserInfo
+	db := r.db.WithContext(c).Where("user_name = ?", userName).First(&userInfo)
+	if err := db.Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+	return &userInfo, nil
+}
+
+func (r *userRepository) GetByEmail(c context.Context, email string) (*model.UserInfo, error) {
+	var userInfo model.UserInfo
+	if err := r.db.WithContext(c).
+		Where("email = ?", email).
+		First(&userInfo).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
 	return &userInfo, nil
 }
 
