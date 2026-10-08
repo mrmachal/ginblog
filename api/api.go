@@ -2,6 +2,7 @@ package api
 
 import (
 	"ginblog/api/article"
+	"ginblog/api/user"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -10,4 +11,5 @@ import (
 func Init(db *gorm.DB, r *gin.Engine) {
 	api := r.Group("/api")
 	article.Init(db, api)
+	user.Init(db, api)
 }

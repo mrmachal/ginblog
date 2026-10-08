@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"ginblog/model"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -10,6 +11,9 @@ import (
 type Repository interface {
 	Create(c context.Context, user *model.UserInfo) error
 	Delete(c context.Context, userID uint) error
+	GetByID(c context.Context, userID uint) (*model.UserInfo, error)
+	Save(c context.Context, newUserInfo *model.UserInfo) error
+	List(c context.Context, query ListUserQuery) ([]*model.UserInfo, int64, error)
 }
 
 type userRepository struct {
@@ -34,4 +38,46 @@ func (r *userRepository) Delete(c context.Context, userID uint) error {
 	}
 
 	return nil
+}
+
+func (r *userRepository) GetByID(c context.Context, userID uint) (*model.UserInfo, error) {
+	var userInfo model.UserInfo
+	db := r.db.WithContext(c).First(&userInfo, userID)
+	if err := db.Error; err != nil {
+		return &model.UserInfo{}, err
+	}
+
+	return &userInfo, nil
+}
+
+func (r *userRepository) Save(c context.Context, newUserInfo *model.UserInfo) error {
+	return r.db.WithContext(c).Save(newUserInfo).Error
+}
+
+func (r *userRepository) List(c context.Context, query ListUserQuery) ([]*model.UserInfo, int64, error) {
+	var userList []*model.UserInfo
+	var total int64
+	db := r.db.WithContext(c).
+		Model(&model.UserInfo{}).
+		Select("id", "user_name", "nick_name", "email", "role", "updated_at", "created_at")
+	if query.Keyword != "" {
+		kw := "%" + query.Keyword + "%"
+		db = db.Where("user_name LIKE ? OR nick_name LIKE ? OR email LIKE ?", kw, kw, kw)
+	}
+	order := "id DESC"
+	if query.Sort != "" {
+		desc := strings.HasPrefix(query.Sort, "-")
+		key := strings.TrimPrefix(query.Sort, "-")
+		if key == "user_name" || key == "nick_name" || key == "email" || key == "role" || key == "created_at" {
+			if desc {
+				order = key + " DESC"
+			} else {
+				order = key + " ASC"
+			}
+		}
+	}
+
+	db = db.Offset((query.Page - 1) * query.PageSize).Limit(query.PageSize).Order(order)
+	err := db.Find(&userList).Error
+	return userList, total, err
 }
