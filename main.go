@@ -10,6 +10,7 @@ import (
 	"ginblog/pkg/database"
 	"ginblog/pkg/logger"
 	"ginblog/pkg/redis"
+	"ginblog/pkg/session"
 	"log/slog"
 	"net/http"
 	"os"
@@ -92,7 +93,18 @@ func main() {
 		}
 	}()
 
-	_ = redisClient
+	sessionStore, err := session.New(session.Config{
+		Prefix: cfg.Auth.SessionPrefix,
+		TTL:    time.Duration(cfg.Auth.ExpireHours) * time.Hour,
+	}, redisClient)
+
+	if err != nil {
+		fatalf("failed to init session store", err)
+	} else {
+		slog.Info("init session store success")
+	}
+
+	_ = sessionStore
 
 	// 初始化Gin服务和路由
 	// gin 运行模式：默认 release，调试时设置 GIN_MODE=debug
@@ -121,7 +133,7 @@ func main() {
 		})
 	})
 
-	api.Init(db, r)
+	api.Init(db, r, sessionStore, cfg.Auth)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Server.Port),

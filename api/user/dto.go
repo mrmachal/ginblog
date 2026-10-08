@@ -1,6 +1,9 @@
 package user
 
-import "time"
+import (
+	"ginblog/model"
+	"time"
+)
 
 // 以下长度均按字符（rune）数计，需与 model.UserInfo 的 gorm 标签保持一致：
 // UserName ≤ 100、NickName ≤ 100、Email ≤ 100。
@@ -76,12 +79,12 @@ type ListUserQuery struct {
 // MeResponse 当前登录用户（/api/user/me）。
 // 故意不含 PasswordHash：模型上 json:"-" 是第一道防线，DTO 不给字段是第二道。
 type MeResponse struct {
-	ID        uint      `json:"id"`
-	UserName  string    `json:"user_name"`
-	NickName  string    `json:"nick_name"`
-	Email     string    `json:"email"`
-	Role      string    `json:"role"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        uint           `json:"id"`
+	UserName  string         `json:"user_name"`
+	NickName  string         `json:"nick_name"`
+	Email     string         `json:"email"`
+	Role      model.UserRole `json:"role"`
+	CreatedAt time.Time      `json:"created_at"`
 }
 
 // UserResponse 用户列表项 / 管理员视角的单个用户。
