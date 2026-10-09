@@ -11,6 +11,6 @@ import (
 func Init(db *gorm.DB, r *gin.RouterGroup, sess *session.Store, auth config.AuthConfig) {
 	repo := NewUserRepository(db)
 	serv := NewUserService(repo, sess)
-	handler := NewUserHandler(serv)
-	SetRouter(r, handler)
+	handler := NewUserHandler(serv, auth)
+	SetRouter(r, handler, sess, auth, repo)
 }

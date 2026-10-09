@@ -51,18 +51,18 @@ type ChangePWRequest struct {
 
 // CreateUserRequest 管理员创建用户。比 ChangeUserRequest 多出账号与密码。
 type CreateUserRequest struct {
-	UserName string `json:"user_name" binding:"required,min=3,max=100"`
-	NickName string `json:"nick_name" binding:"required,max=100"`
-	Email    string `json:"email"     binding:"required,email,max=100"`
-	Password string `json:"password"  binding:"required,min=8,max=64"`
-	Role     string `json:"role"      binding:"omitempty,oneof=user moderator admin"`
+	UserName string         `json:"user_name" binding:"required,min=3,max=100"`
+	NickName string         `json:"nick_name" binding:"required,max=100"`
+	Email    string         `json:"email"     binding:"required,email,max=100"`
+	Password string         `json:"password"  binding:"required,min=8,max=64"`
+	Role     model.UserRole `json:"role"      binding:"omitempty,oneof=user moderator admin"`
 }
 
 // ChangeUserRequest 管理员修改他人资料。Role 可改是与 UpdateMeRequest 的唯一区别。
 type ChangeUserRequest struct {
-	NickName string `json:"nick_name" binding:"omitempty,max=100"`
-	Email    string `json:"email"     binding:"omitempty,email,max=100"`
-	Role     string `json:"role"      binding:"omitempty,oneof=user moderator admin"`
+	NickName string         `json:"nick_name" binding:"omitempty,max=100"`
+	Email    string         `json:"email"     binding:"omitempty,email,max=100"`
+	Role     model.UserRole `json:"role"      binding:"omitempty,oneof=user moderator admin"`
 }
 
 // ListUserQuery 管理员查询用户列表（query 参数用 form 标签）。
@@ -90,13 +90,13 @@ type MeResponse struct {
 // UserResponse 用户列表项 / 管理员视角的单个用户。
 // 与 MeResponse 的差别在于暴露 UpdatedAt 与最后活跃时间，供管理端使用。
 type UserResponse struct {
-	ID        uint      `json:"id"`
-	UserName  string    `json:"user_name"`
-	NickName  string    `json:"nick_name"`
-	Email     string    `json:"email"`
-	Role      string    `json:"role"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        uint           `json:"id"`
+	UserName  string         `json:"user_name"`
+	NickName  string         `json:"nick_name"`
+	Email     string         `json:"email"`
+	Role      model.UserRole `json:"role"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
 }
 
 // LoginResponse 登录响应。
