@@ -37,12 +37,12 @@ func (s *Service) List(c context.Context, q ListArticleQuery) ([]SummaryResponse
 	return out, total, nil
 }
 
-func (s *Service) GetByID(c context.Context, articleID uint) (*DetailArticleResponse, error) {
+func (s *Service) GetByID(c context.Context, articleID uint) (DetailArticleResponse, error) {
 	article, err := s.repo.GetById(c, articleID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get article detail: %w", err)
+		return DetailArticleResponse{}, fmt.Errorf("failed to get article detail: %w", err)
 	}
-	return &DetailArticleResponse{
+	return DetailArticleResponse{
 		ID:          article.ID,
 		Title:       article.Title,
 		Description: article.Description,
