@@ -92,13 +92,13 @@ func (r *articleRepository) Save(c context.Context, article *model.Article) erro
 	return r.db.WithContext(c).Save(article).Error
 }
 
-func (r *articleRepository) UserOwnsArticle(c context.Context, articleID, UserID uint) (bool, error) {
-	db := r.db.WithContext(c).Select("id", "user_id").Where("id = ? AND user_id = ?", articleID, UserID)
+func (r *articleRepository) UserOwnsArticle(c context.Context, articleID, userID uint) (bool, error) {
+	db := r.db.WithContext(c).Select("id", "user_id").Where("id = ? AND user_id = ?", articleID, userID)
 	var count int64
 	err := db.Count(&count).Error
 	if err != nil {
 		return false, err
 	}
 
-	return count >= 0, nil
+	return count > 0, nil
 }
