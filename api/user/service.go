@@ -128,8 +128,12 @@ func (s *Service) UpdateMe(c context.Context, userID uint, req UpdateMeRequest) 
 		return MeResponse{}, fmt.Errorf("failed to get userinfo: %w", err)
 	}
 
-	user.NickName = req.NickName
-	user.Email = req.Email
+	if req.NickName != "" {
+		user.NickName = req.NickName
+	}
+	if req.Email != "" {
+		user.Email = req.Email
+	}
 
 	err = s.repo.Save(c, user)
 	if err != nil {
@@ -150,9 +154,15 @@ func (s *Service) ChangeUser(c context.Context, userID uint, req ChangeUserReque
 		return UserResponse{}, fmt.Errorf("failed to get userinfo: %w", err)
 	}
 
-	user.NickName = req.NickName
-	user.Email = req.Email
-	user.Role = req.Role
+	if req.NickName != "" {
+		user.NickName = req.NickName
+	}
+	if req.Email != "" {
+		user.Email = req.Email
+	}
+	if req.Role != "" {
+		user.Role = req.Role
+	}
 
 	if err := s.repo.Save(c, user); err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
