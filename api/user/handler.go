@@ -103,12 +103,14 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 	var req ChangePWRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, response.Fail(response.CodeInvalidParam, response.MessageOf(response.CodeInvalidState)))
+		return
 	}
 
 	res, err := h.serv.ChangePassword(c.Request.Context(), userID, req)
 	if err != nil {
 		if errors.Is(err, ErrInvalidCredential) {
 			c.JSON(http.StatusConflict, response.Fail(response.CodeConflict, "密码不正确"))
+			return
 		}
 
 		_ = c.Error(fmt.Errorf("failed to change password: %w", err))
