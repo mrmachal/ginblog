@@ -102,7 +102,7 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 	userID := c.GetUint(middleware.KeyUserID)
 	var req ChangePWRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, response.Fail(response.CodeInvalidParam, response.MessageOf(response.CodeInvalidState)))
+		c.JSON(http.StatusBadRequest, response.Fail(response.CodeInvalidParam, response.MessageOf(response.CodeInvalidParam)))
 		return
 	}
 

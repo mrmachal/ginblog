@@ -95,6 +95,11 @@ func (r *userRepository) List(c context.Context, query ListUserQuery) ([]*model.
 		kw := "%" + query.Keyword + "%"
 		db = db.Where("user_name LIKE ? OR nick_name LIKE ? OR email LIKE ?", kw, kw, kw)
 	}
+
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
 	order := "id DESC"
 	if query.Sort != "" {
 		desc := strings.HasPrefix(query.Sort, "-")

@@ -129,7 +129,7 @@ func (s *Service) UpdateMe(c context.Context, userID uint, req UpdateMeRequest) 
 	}
 
 	user.NickName = req.NickName
-	user.Email = req.NickName
+	user.Email = req.Email
 
 	err = s.repo.Save(c, user)
 	if err != nil {
