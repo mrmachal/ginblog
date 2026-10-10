@@ -1,14 +1,23 @@
 package article
 
-import "github.com/gin-gonic/gin"
+import (
+	"ginblog/config"
+	"ginblog/middleware"
 
-func SetRouter(r *gin.RouterGroup, h *Handler) {
+	"github.com/gin-gonic/gin"
+)
+
+func SetRouter(r *gin.RouterGroup, h *Handler, sess middleware.SessionStore, auth config.AuthConfig) {
 	article := r.Group("/article")
 	{
 		article.GET("/list", h.List)
 		article.GET("/detail", h.Get)
-		article.POST("/create", h.Create)
-		article.POST("/delete", h.Delete)
-		article.POST("/update", h.Update)
+		authGroup := article.Group("")
+		authGroup.Use(middleware.RequireAuth(sess, auth))
+		{
+			authGroup.POST("/create", h.Create)
+			authGroup.POST("/delete", h.Delete)
+			authGroup.POST("/update", h.Update)
+		}
 	}
 }

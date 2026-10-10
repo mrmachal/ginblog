@@ -17,6 +17,7 @@ type Repository interface {
 	GetByEmail(c context.Context, email string) (*model.UserInfo, error)
 	Save(c context.Context, newUserInfo *model.UserInfo) error
 	List(c context.Context, query ListUserQuery) ([]*model.UserInfo, int64, error)
+	Role(c context.Context, userID uint) (model.UserRole, bool, error)
 }
 
 type userRepository struct {
@@ -54,6 +55,19 @@ func (r *userRepository) GetByID(c context.Context, userID uint) (*model.UserInf
 	}
 
 	return &userInfo, nil
+}
+
+func (r *userRepository) Role(c context.Context, userID uint) (model.UserRole, bool, error) {
+	var userInfo model.UserInfo
+	// 只取 id/role 两列，别把 PasswordHash 拉进内存
+	err := r.db.WithContext(c).Select("id", "role").First(&userInfo, userID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return userInfo.Role, true, nil
 }
 
 func (r *userRepository) GetByUserName(c context.Context, userName string) (*model.UserInfo, error) {

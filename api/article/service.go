@@ -10,12 +10,40 @@ import (
 	"gorm.io/gorm"
 )
 
-type Service struct {
-	repo Repository
+type RoleProvider interface {
+	Role(c context.Context, userID uint) (model.UserRole, bool, error)
 }
 
-func NewService(repo Repository) *Service {
-	return &Service{repo: repo}
+type Service struct {
+	repo  Repository
+	roles RoleProvider
+}
+
+func NewService(repo Repository, roles RoleProvider) *Service {
+	return &Service{repo: repo, roles: roles}
+}
+
+func (s *Service) authorize(c context.Context, actorID, articleID uint) (*model.Article, error) {
+	role, found, err := s.roles.Role(c, actorID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load actor role: %w", err)
+	}
+	if !found {
+		return nil, ErrUserNotFound
+	}
+
+	article, err := s.repo.GetById(c, articleID)
+	if err != nil {
+		if errors.Is(err, ErrArticleNotFound) {
+			return nil, err
+		}
+		return nil, fmt.Errorf("failed to get article: %w", err)
+	}
+
+	if role == model.RoleAdmin || article.UserID == actorID {
+		return article, nil
+	}
+	return nil, ErrAuthorNotOwnsArticle
 }
 
 func (s *Service) List(c context.Context, q ListArticleQuery) ([]SummaryResponse, int64, error) {
@@ -40,6 +68,9 @@ func (s *Service) List(c context.Context, q ListArticleQuery) ([]SummaryResponse
 func (s *Service) GetByID(c context.Context, articleID uint) (DetailArticleResponse, error) {
 	article, err := s.repo.GetById(c, articleID)
 	if err != nil {
+		if errors.Is(err, ErrArticleNotFound) {
+			return DetailArticleResponse{}, err
+		}
 		return DetailArticleResponse{}, fmt.Errorf("failed to get article detail: %w", err)
 	}
 	return DetailArticleResponse{
@@ -54,7 +85,7 @@ func (s *Service) GetByID(c context.Context, articleID uint) (DetailArticleRespo
 	}, nil
 }
 
-func (s *Service) Create(c context.Context, articleReq CreateArticleRequest) (SummaryResponse, error) {
+func (s *Service) Create(c context.Context, userID uint, articleReq CreateArticleRequest) (SummaryResponse, error) {
 	title := strings.TrimSpace(articleReq.Title)
 	if title == "" {
 		return SummaryResponse{}, fmt.Errorf("title must not be blank")
@@ -62,12 +93,22 @@ func (s *Service) Create(c context.Context, articleReq CreateArticleRequest) (Su
 	if strings.TrimSpace(articleReq.Content) == "" {
 		return SummaryResponse{}, fmt.Errorf("content must not be blank")
 	}
+
+	if userID == 0 {
+		return SummaryResponse{}, ErrUserNotFound
+	}
 	article := model.Article{
 		Title:       articleReq.Title,
 		Description: articleReq.Description,
 		Content:     articleReq.Content,
+		UserID:      userID,
 	}
 	if err := s.repo.Create(c, &article); err != nil {
+		// repo 已把外键违约翻译成 ErrUserNotFound；这里保留对原始 gorm 错误的判断，
+		// 兜住驱动/方言未翻译的情况，避免漏成 500
+		if errors.Is(err, ErrUserNotFound) || errors.Is(err, gorm.ErrForeignKeyViolated) {
+			return SummaryResponse{}, ErrUserNotFound
+		}
 		return SummaryResponse{}, fmt.Errorf("failed to create article: %w", err)
 	}
 	return SummaryResponse{
@@ -76,40 +117,40 @@ func (s *Service) Create(c context.Context, articleReq CreateArticleRequest) (Su
 		Description: article.Description,
 		CreatedAt:   article.CreatedAt,
 		UpdatedAt:   article.UpdatedAt,
+		AuthorName:  article.User.NickName,
 	}, nil
 }
 
-func (s *Service) Delete(c context.Context, articleID uint) error {
-	err := s.repo.Delete(c, articleID)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return fmt.Errorf("article not found: %w", err)
+func (s *Service) Delete(c context.Context, actorID, articleID uint) error {
+	// 鉴权同时完成存在性校验（文章不存在 → ErrArticleNotFound）
+	if _, err := s.authorize(c, actorID, articleID); err != nil {
+		return err
+	}
+
+	if err := s.repo.Delete(c, articleID); err != nil {
+		if errors.Is(err, ErrArticleNotFound) {
+			return err
 		}
 		return fmt.Errorf("failed to delete article: %w", err)
 	}
 	return nil
 }
 
-func (s *Service) Update(c context.Context, articleID uint, req UpdateArticleRequest) (SummaryResponse, error) {
-	// 1. 业务校验：binding tag 只能在 handler 层校验格式/长度，这里补语义校验
-	if articleID == 0 {
-		return SummaryResponse{}, fmt.Errorf("invalid article id")
+// Update 更新文章：作者本人或管理员。
+func (s *Service) Update(c context.Context, actorID, articleID uint, req UpdateArticleRequest) (SummaryResponse, error) {
+	// 1. 鉴权 + 载入实体：安全门先过，再谈业务校验
+	article, err := s.authorize(c, actorID, articleID)
+	if err != nil {
+		return SummaryResponse{}, err
 	}
+
+	// 2. 业务校验：binding tag 只能在 handler 层校验格式/长度，这里补语义校验
 	title := strings.TrimSpace(req.Title)
 	if title == "" {
 		return SummaryResponse{}, fmt.Errorf("title must not be blank")
 	}
 	if strings.TrimSpace(req.Content) == "" {
 		return SummaryResponse{}, fmt.Errorf("content must not be blank")
-	}
-
-	// 2. 存在性校验（load）：不存在返回 404 语义
-	article, err := s.repo.GetById(c, articleID)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return SummaryResponse{}, fmt.Errorf("article not found: %w", err)
-		}
-		return SummaryResponse{}, fmt.Errorf("failed to get article: %w", err)
 	}
 
 	// 3. 只覆盖业务字段；ID/CreatedAt/DeletedAt 等系统字段保持数据库原值

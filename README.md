@@ -26,14 +26,14 @@
 ginblog/
 ├── main.go                    # 入口：配置 → 日志 → 数据库 → 迁移 → Redis → Session → 路由 → 启动 → 优雅退出
 ├── api/
-│   ├── api.go                 # 对外统一入口：创建 /api 分组，注入 session 与 auth 配置，注册各业务模块
+│   ├── api.go                 # composition root：创建 /api 分组，new 所有 repository 并注入各模块（模块内不再 new repo）
 │   ├── article/               # 文章模块（handler → service → repository 三层）
-│   │   ├── router.go          # 路由注册
-│   │   ├── handler.go         # 参数绑定、响应映射
-│   │   ├── service.go         # 业务逻辑（校验、组装）
-│   │   ├── repository.go      # 数据访问（GORM）
+│   │   ├── router.go          # 路由注册（/list /detail 公开，/create /update /delete 挂 RequireAuth）
+│   │   ├── handler.go         # 参数绑定、响应映射、领域错误 → HTTP 状态码
+│   │   ├── service.go         # 业务逻辑（校验、组装）+ 鉴权策略 authorize（作者或管理员）
+│   │   ├── repository.go      # 数据访问（GORM），不含任何权限语义
 │   │   ├── dto.go             # 请求/响应结构与校验标签
-│   │   └── article.go         # 模块装配：repo → service → handler → router
+│   │   └── article.go         # 模块装配：接收 repo 与 RoleProvider → service → handler → router
 │   └── user/                  # 用户模块（同上三层 + error.go 业务错误）
 │       ├── router.go          # 公开 / 登录态 / 管理员 三组路由，中间件在此挂载
 │       ├── handler.go         # 参数绑定、cookie 读写、错误码映射
@@ -188,6 +188,10 @@ go build -o build/ginblog.exe .
 
 挂载顺序固定为 `RequireAuth` → `RequireAdmin` → handler：后者依赖前者注入的 `KeyUserID`，反序会导致取到 0 而误判。
 
+**跨模块依赖**：`user.Repository` 由 `api/api.go` 创建一次并注入三处——user 模块自身、`middleware.RequireAdmin`、以及 `article` 的 `RoleProvider`。`article` 包声明只含 `Role` 方法的窄接口，不 import `api/user`；各模块的 `Init` 只接收依赖、拿不到 `*gorm.DB`，因此不可能偷偷构造别的模块的 repository。
+
+**文章写接口的权限不在中间件里**，而在 `article.Service.authorize`：登录（`RequireAuth`）与「作者还是管理员」是两件事，后者需要知道文章归属，属于业务策略。判定顺序为「用户存在 → 文章存在 → 管理员或作者」，依次对应 `401` / `404` / `403`。
+
 **角色**（`model.UserInfo.Role`，注册默认 `user`）：`user` / `moderator` / `admin`。
 
 **密码**：bcrypt 哈希存储（`x/crypto/bcrypt`，`DefaultCost`），`PasswordHash` 在模型上 `json:"-"`、DTO 不含该字段，双重防线不外泄。
@@ -234,8 +238,8 @@ go build -o build/ginblog.exe .
 | 段 | 示例 | 含义 |
 |---|---|---|
 | `0` | — | 成功 |
-| `1xxxx` | `10001` 参数校验失败、`10002` 未登录、`10003` 无权限 | 客户端错误 |
-| `2xxxx` | `20001` 资源不存在、`20002` 资源冲突（用户名/邮箱重复） | 业务错误 |
+| `1xxxx` | `10001` 参数校验失败、`10002` 未登录/登录态失效、`10003` 无权限 | 客户端错误 |
+| `2xxxx` | `20001` 资源不存在（文章/用户）、`20002` 资源冲突（用户名/邮箱重复） | 业务错误 |
 | `5xxxx` | `50000` 内部错误、`50001` 数据库错误 | 服务端错误 |
 
 ## 接口
@@ -267,15 +271,17 @@ go build -o build/ginblog.exe .
 | POST | `/api/user/update?id=` | 修改用户；body：`{nick_name?, email?, role?}` |
 | POST | `/api/user/delete?id=` | 删除用户 |
 
-### 文章（当前**未挂认证中间件**，公开可访问）
+### 文章
 
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| GET | `/api/article/list` | 文章列表；参数：`page`、`page_size`（≤100）、`keyword`、`sort`（`title`/`created_at` 等，`-` 前缀降序） |
-| GET | `/api/article/detail?id=` | 文章详情 |
-| POST | `/api/article/create` | 创建文章；body：`{title, description, content}` |
-| POST | `/api/article/update?id=` | 更新文章；body 同上 |
-| POST | `/api/article/delete?id=` | 删除文章 |
+| 方法 | 路径 | 权限 | 说明 |
+|---|---|---|---|
+| GET | `/api/article/list` | 公开 | 文章列表；参数：`page`、`page_size`（≤100）、`keyword`、`sort`（`title`/`created_at` 等，`-` 前缀降序） |
+| GET | `/api/article/detail?id=` | 公开 | 文章详情 |
+| POST | `/api/article/create` | 登录 | 创建文章；body：`{title, description, content}`；作者取当前登录用户 |
+| POST | `/api/article/update?id=` | 登录 + 作者本人或管理员 | 更新文章；body 同上；非作者非管理员 → `403` |
+| POST | `/api/article/delete?id=` | 登录 + 作者本人或管理员 | 删除文章；非作者非管理员 → `403` |
+
+权限判定在 `article.Service.authorize`（`api/article/service.go`），错误映射：文章不存在 `404`、无权 `403`、账号已删 `401`。角色实时查库，降权立即生效；`moderator` 目前**不在**文章策略内，等同普通用户。
 
 ## 路线规划
 
